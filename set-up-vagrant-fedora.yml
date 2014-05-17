@@ -1,0 +1,95 @@
+---
+- hosts: all
+  user: root
+  sudo: false
+  tasks:
+  - name: Run a yum update
+    yum: name=* state=latest
+  - name: Install Docker
+    yum: pkg=docker-io
+  - name: Start Docker
+    service: name=docker state=started enabled=yes
+  - name: Pull down the Vagrant Docker CentOS image
+    command: docker pull smerrill/vagrant-centos
+  - name: Install Ruby
+    yum: pkg=ruby
+  - name: Install Ruby development libraries
+    yum: pkg=ruby-devel
+  - name: Install the Bundler gem
+    yum: pkg=rubygem-bundler
+  - name: Install patch
+    yum: pkg=patch
+  - name: Set up the Linux development tools
+    yum: name="@Development tools" state=present
+  - name: Install Vagrant 1.6.2
+    yum: 'pkg=https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.2_x86_64.rpm'
+  - name: Install vcprompt
+    yum: 'pkg=http://copr-be.cloud.fedoraproject.org/results/stevenmerrill/vcprompt/fedora-20-x86_64/vcprompt-1.1-1.fc19/vcprompt-1.1-1.fc20.x86_64.rpm'
+  - name: Install vim
+    yum: pkg=vim-enhanced
+  - name: Install ctags
+    yum: pkg=ctags
+  - name: Install htop
+    yum: pkg=htop
+  - name: Install git
+    yum: pkg=git
+  - name: Install keychain
+    yum: pkg=keychain
+  # Set up the smerrill user.
+  - name: Create smerrill group
+    group: name=smerrill gid=1000
+  - name: Create smerrill user
+    user: name=smerrill shell=/bin/bash group=smerrill groups=wheel,docker append=yes uid=1000 password="$6$rounds=100000$ZWpvmZo6N1I4Wart$AcjM50N/eQJXGtreXGlWEOOhwZ7qDboSrLIgj3ai5Ksej2SiCeXUqGPMJA0OdVZdiQE5PSlwsqLksqeKD0BF90"
+  - name: Immediately expire the smerrill password.
+    command: /usr/bin/chage -d0 smerrill
+  - name: Install vagrant-gatling-rsync
+    command: vagrant plugin install vagrant-gatling-rsync chdir=/home/smerrill
+    sudo: yes
+    sudo_user: smerrill
+  - name: Install vagrant-rsync-back
+    command: vagrant plugin install vagrant-rsync-back chdir=/home/smerrill
+    sudo: yes
+    sudo_user: smerrill
+  - name: Install vagrant-host-shell
+    command: vagrant plugin install vagrant-host-shell chdir=/home/smerrill
+    sudo: yes
+    sudo_user: smerrill
+  - name: Set up SSH directory
+    file: path=/home/smerrill/.ssh owner=smerrill group=smerrill state=directory mode=0700
+  - name: Copy SSH config
+    copy: src=/Users/smerrill/.ssh/config dest=/home/smerrill/.ssh/config owner=smerrill group=smerrill mode=0600
+  - name: Copy the SSH private key
+    copy: src=/Users/smerrill/.ssh/id_rsa dest=/home/smerrill/.ssh/id_rsa owner=smerrill group=smerrill mode=0600
+  - name: Copy the SSH public key
+    copy: src=/Users/smerrill/.ssh/id_rsa.pub dest=/home/smerrill/.ssh/id_rsa.pub owner=smerrill group=smerrill mode=0600
+  - name: Copy the SSH public key to authorized_keys
+    copy: src=/Users/smerrill/.ssh/id_rsa.pub dest=/home/smerrill/.ssh/authorized_keys owner=smerrill group=smerrill mode=0600
+  - name: Clone dotfiles
+    git: repo=https://github.com/smerrill/dotfiles.git dest=/home/smerrill/dotfiles version=switch-to-vundle
+  - name: Re-point dotfiles git repository
+    command: 'git remote set-url origin git@github.com:smerrill/dotfiles.git chdir=/home/smerrill/dotfiles'
+    sudo: yes
+    sudo_user: smerrill
+  - name: Fetch dotfiles submodules
+    command: 'git submodule update --init chdir=/home/smerrill/dotfiles'
+    sudo: yes
+    sudo_user: smerrill
+  - name: Install dotfiles
+    command: '/home/smerrill/dotfiles/install-dotfiles.sh chdir=/home/smerrill'
+    sudo: yes
+    sudo_user: smerrill
+  #- name: Install Vim plugins
+    #command: 'yes "" | vim -c ":BundleInstall" chdir=/home/smerrill'
+    #sudo: yes
+    #sudo_user: smerrill
+  - name: Fix permissions
+    command: 'chown -R smerrill:smerrill /home/smerrill'
+  # Ensure that wheel can sudo.
+  - name: Set up sudoers
+    lineinfile: "dest=/etc/sudoers state=present regexp='^%wheel' line='%wheel  ALL=(ALL)       ALL' validate='visudo -cf %s'"
+  - name: Disable SSH password auth.
+    lineinfile: dest=/etc/ssh/sshd_config state=present regexp='^#?PasswordAuthentication' line='PasswordAuthentication no'
+  - name: Disable SSH root login.
+    lineinfile: dest=/etc/ssh/sshd_config state=present regexp='^#?PermitRootLogin' line='PermitRootLogin no'
+  - name: Restart SSH.
+    service: name=sshd state=restarted enabled=yes
