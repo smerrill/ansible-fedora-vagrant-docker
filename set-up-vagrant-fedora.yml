@@ -9,8 +9,6 @@
     yum: pkg=docker-io
   - name: Start Docker
     service: name=docker state=started enabled=yes
-  - name: Pull down the Vagrant Docker CentOS image
-    command: docker pull smerrill/vagrant-centos
   - name: Install Ruby
     yum: pkg=ruby
   - name: Install Ruby development libraries
@@ -21,10 +19,11 @@
     yum: pkg=patch
   - name: Set up the Linux development tools
     yum: name="@Development tools" state=present
-  - name: Install Vagrant 1.6.2
-    yum: 'pkg=https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.2_x86_64.rpm'
+    # Install 1.6.5 because vagrant-libvirt has issues with 1.7.0 when I last checked.
+  - name: Install Vagrant 1.6.5
+    yum: 'pkg=https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.5_x86_64.rpm'
   - name: Install vcprompt
-    yum: 'pkg=http://copr-be.cloud.fedoraproject.org/results/stevenmerrill/vcprompt/fedora-20-x86_64/vcprompt-1.1-1.fc19/vcprompt-1.1-1.fc20.x86_64.rpm'
+    yum: 'pkg=http://copr-be.cloud.fedoraproject.org/results/stevenmerrill/vcprompt/fedora-rawhide-x86_64/vcprompt-1.1-1.fc19/vcprompt-1.1-1.fc21.x86_64.rpm'
   - name: Install vim
     yum: pkg=vim-enhanced
   - name: Install ctags
@@ -33,13 +32,13 @@
     yum: pkg=htop
   - name: Install git
     yum: pkg=git
-  - name: Install keychain
-    yum: pkg=keychain
+  - name: Install zsh
+    yum: pkg=zsh
   # Set up the smerrill user.
   - name: Create smerrill group
     group: name=smerrill gid=1000
   - name: Create smerrill user
-    user: name=smerrill shell=/bin/bash group=smerrill groups=wheel,docker append=yes uid=1000 password="$6$rounds=100000$ZWpvmZo6N1I4Wart$AcjM50N/eQJXGtreXGlWEOOhwZ7qDboSrLIgj3ai5Ksej2SiCeXUqGPMJA0OdVZdiQE5PSlwsqLksqeKD0BF90"
+    user: name=smerrill shell=/bin/zsh group=smerrill groups=wheel,docker append=yes uid=1000 password="$6$rounds=100000$ZWpvmZo6N1I4Wart$AcjM50N/eQJXGtreXGlWEOOhwZ7qDboSrLIgj3ai5Ksej2SiCeXUqGPMJA0OdVZdiQE5PSlwsqLksqeKD0BF90"
   - name: Immediately expire the smerrill password.
     command: /usr/bin/chage -d0 smerrill
   - name: Install vagrant-gatling-rsync
@@ -54,6 +53,10 @@
     command: vagrant plugin install vagrant-host-shell chdir=/home/smerrill
     sudo: yes
     sudo_user: smerrill
+  - name: Install vagrant-cachier
+    command: vagrant plugin install vagrant-cachier chdir=/home/smerrill
+    sudo: yes
+    sudo_user: smerrill
   - name: Set up SSH directory
     file: path=/home/smerrill/.ssh owner=smerrill group=smerrill state=directory mode=0700
   - name: Copy SSH config
@@ -65,7 +68,7 @@
   - name: Copy the SSH public key to authorized_keys
     copy: src=/Users/smerrill/.ssh/id_rsa.pub dest=/home/smerrill/.ssh/authorized_keys owner=smerrill group=smerrill mode=0600
   - name: Clone dotfiles
-    git: repo=https://github.com/smerrill/dotfiles.git dest=/home/smerrill/dotfiles version=switch-to-vundle
+    git: repo=https://github.com/smerrill/dotfiles.git dest=/home/smerrill/dotfiles
   - name: Re-point dotfiles git repository
     command: 'git remote set-url origin git@github.com:smerrill/dotfiles.git chdir=/home/smerrill/dotfiles'
     sudo: yes
